@@ -14,6 +14,8 @@
         .message { margin-bottom: 15px; padding: 10px; border-radius: 10px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; }
         .sender-name { font-weight: bold; color: #0056b3; font-size: 11px; display: block; margin-bottom: 5px; }
         .message img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; }
+        /* Új stílus a jelszó gombhoz */
+        #forgot-pwd-btn { background: none; border: none; color: #0056b3; text-decoration: underline; font-size: 12px; cursor: pointer; width: auto; margin: 0; padding: 5px; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -23,12 +25,13 @@
         <input type="email" id="email" placeholder="E-mail cím">
         <input type="password" id="password" placeholder="Jelszó">
         <button id="login-btn">Bejelentkezés</button>
+        <button id="forgot-pwd-btn">Elfelejtettem a jelszavam</button>
         <div id="message-error" style="color: red; margin-top: 10px; font-size: 14px;"></div>
     </div>
 
     <div class="container" id="chat-section">
         <button id="logout-btn">Kijelentkezés</button>
-        <h3>Tanári Szoba</h3>
+        <h3>Közös Csatorna</h3>
         <div id="messages"></div>
         <input type="text" id="chat-input" placeholder="Üzenet írása...">
         <input type="file" id="image-input" accept="image/*">
@@ -37,31 +40,22 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const firebaseConfig = {
-
-  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
-
-  authDomain: "koli-app-85ef1.firebaseapp.com",
-
-  projectId: "koli-app-85ef1",
-
-  storageBucket: "koli-app-85ef1.firebasestorage.app",
-
-  messagingSenderId: "1004585923554",
-
-  appId: "1:1004585923554:web:34213bcbf7680ea75abfbb"
-
-};
-
+            apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
+            authDomain: "koli-app-85ef1.firebaseapp.com",
+            projectId: "koli-app-85ef1",
+            storageBucket: "koli-app-85ef1.firebasestorage.app",
+            messagingSenderId: "1004585923554",
+            appId: "1:1004585923554:web:34213bcbf7680ea75abfbb"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // FIGYELŐ JAVÍTVA: Ez váltja a képernyőt
         onAuthStateChanged(auth, (user) => {
             const loginSec = document.getElementById('login-section');
             const chatSec = document.getElementById('chat-section');
@@ -75,14 +69,33 @@
             }
         });
 
-        // BEJELENTKEZÉS JAVÍTVA
         document.getElementById('login-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             try {
                 await signInWithEmailAndPassword(auth, email, password);
             } catch (error) {
-                document.getElementById('message-error').innerText = "Hiba: " + error.message;
+                document.getElementById('message-error').style.color = "red";
+                document.getElementById('message-error').innerText = "Hiba: Hibás adatok!";
+            }
+        });
+
+        // ÚJ: Elfelejtett jelszó logika
+        document.getElementById('forgot-pwd-btn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const msgDiv = document.getElementById('message-error');
+            if (!email) {
+                msgDiv.style.color = "red";
+                msgDiv.innerText = "Kérlek, előbb írd be az e-mail címedet!";
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                msgDiv.style.color = "green";
+                msgDiv.innerText = "Jelszó-visszaállító e-mail elküldve!";
+            } catch (error) {
+                msgDiv.style.color = "red";
+                msgDiv.innerText = "Hiba: Nem található ilyen e-mail cím.";
             }
         });
 
