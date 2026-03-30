@@ -2,19 +2,18 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Karacs Tanári Chat</title>
+    <title>Pedagógus Chat</title>
     <style>
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
         .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); width: 450px; text-align: center; position: relative; }
         input[type="email"], input[type="password"], input[type="text"], button { width: 100%; margin: 8px 0; padding: 12px; box-sizing: border-box; border-radius: 6px; border: 1px solid #ddd; }
-        button { background-color: #0056b3; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.3s; }
-        button:hover { background-color: #004494; }
+        button { background-color: #0056b3; color: white; border: none; cursor: pointer; font-weight: bold; }
         #logout-btn { background-color: #dc3545; padding: 8px; font-size: 12px; width: auto; position: absolute; top: 10px; right: 10px; }
         #chat-section { display: none; }
         #messages { height: 400px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; padding: 15px; text-align: left; background: #fafafa; border-radius: 8px; }
         .message { margin-bottom: 15px; padding: 10px; border-radius: 10px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; }
         .sender-name { font-weight: bold; color: #0056b3; font-size: 11px; display: block; margin-bottom: 5px; }
-        .message img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; cursor: pointer; }
+        .message img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; }
     </style>
 </head>
 <body>
@@ -31,9 +30,9 @@
         <button id="logout-btn">Kijelentkezés</button>
         <h3>Közös Csatorna</h3>
         <div id="messages"></div>
-        <input type="text" id="chat-input" placeholder="Üzenet írása (Enter a küldéshez)...">
-        <input type="file" id="image-input" accept="image/*" style="margin-top: 5px; font-size: 12px;">
-        <button id="send-btn" style="margin-top: 10px;">Küldés</button>
+        <input type="text" id="chat-input" placeholder="Üzenet írása...">
+        <input type="file" id="image-input" accept="image/*">
+        <button id="send-btn">Küldés</button>
     </div>
 
     <script type="module">
@@ -41,7 +40,9 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        const firebaseConfig = {  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
 
   authDomain: "koli-app-85ef1.firebaseapp.com",
 
@@ -54,36 +55,39 @@
   appId: "1:1004585923554:web:34213bcbf7680ea75abfbb"
 
 };
-           
+
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Állapotfigyelő: ha be van lépve, egyből a chatet mutatjuk
+        // FIGYELŐ JAVÍTVA: Ez váltja a képernyőt
         onAuthStateChanged(auth, (user) => {
+            const loginSec = document.getElementById('login-section');
+            const chatSec = document.getElementById('chat-section');
             if (user) {
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('chat-section').style.display = 'block';
+                loginSec.style.display = 'none';
+                chatSec.style.display = 'block';
                 loadMessages();
             } else {
-                document.getElementById('login-section').style.display = 'block';
-                document.getElementById('chat-section').style.display = 'none';
+                loginSec.style.display = 'block';
+                chatSec.style.display = 'none';
             }
         });
 
-        // Belépés
-        document.getElementById('login-btn').addEventListener('click', () => {
+        // BEJELENTKEZÉS JAVÍTVA
+        document.getElementById('login-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            signInWithEmailAndPassword(auth, email, password).catch(() => {
-                document.getElementById('message-error').innerText = "Hibás adatok!";
-            });
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                document.getElementById('message-error').innerText = "Hiba: " + error.message;
+            }
         });
 
-        // Kijelentkezés
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
 
-        // Küldés funkció
         async function handleSend() {
             const inputField = document.getElementById('chat-input');
             const imageInput = document.getElementById('image-input');
@@ -93,11 +97,17 @@
             if (!text && !file) return;
 
             const sendToDB = async (base64Img = null) => {
-                const docData = { sender: auth.currentUser.email, timestamp: serverTimestamp() };
-                if (text) docData.text = text;
-                if (base64Img) docData.imageUrl = base64Img;
-                await addDoc(collection(db, "messages"), docData);
-                inputField.value = ""; imageInput.value = "";
+                try {
+                    const docData = { 
+                        sender: auth.currentUser.email, 
+                        timestamp: serverTimestamp() 
+                    };
+                    if (text) docData.text = text;
+                    if (base64Img) docData.imageUrl = base64Img;
+                    await addDoc(collection(db, "messages"), docData);
+                    inputField.value = ""; 
+                    imageInput.value = "";
+                } catch (e) { console.error("Küldési hiba:", e); }
             };
 
             if (file) {
@@ -106,12 +116,12 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800;
+                        const MAX_WIDTH = 600;
                         let w = img.width, h = img.height;
                         if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
                         canvas.width = w; canvas.height = h;
                         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                        sendToDB(canvas.toDataURL('image/jpeg', 0.6));
+                        sendToDB(canvas.toDataURL('image/jpeg', 0.5));
                     };
                     img.src = e.target.result;
                 };
@@ -120,9 +130,7 @@
         }
 
         document.getElementById('send-btn').addEventListener('click', handleSend);
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSend();
-        });
+        document.getElementById('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
 
         function loadMessages() {
             const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
