@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Pedagógus Rendszer</title>
+    <style>
+        body { font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .container { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 400px; text-align: center; }
+        input[type="email"], input[type="password"], input[type="text"], button { width: 100%; margin: 10px 0; padding: 10px; box-sizing: border-box; }
+        input[type="file"] { margin: 10px 0; width: 100%; }
+        button { background-color: #0056b3; color: white; border: none; cursor: pointer; font-weight: bold; padding: 12px; }
+        #chat-section { display: none; }
+        #messages { height: 350px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; text-align: left; background: #fafafa; }
+        .message { margin-bottom: 10px; padding: 8px; border-radius: 5px; background-color: #e9ecef; font-size: 14px; word-wrap: break-word; }
+        .sender-name { font-weight: bold; color: #0056b3; font-size: 12px; margin-bottom: 4px; display: block; }
+        .message img { max-width: 100%; border-radius: 5px; margin-top: 8px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-section">
+        <h2>Belépés</h2>
+        <input type="email" id="email" placeholder="E-mail cím" required>
+        <input type="password" id="password" placeholder="Jelszó" required>
+        <button id="login-btn">Bejelentkezés</button>
+        <div id="message-error" style="color: red; margin-top: 10px;"></div>
+    </div>
+
+    <div class="container" id="chat-section">
+        <h2>Pedagógus Csatorna</h2>
+        <div id="messages"></div>
+        <input type="text" id="chat-input" placeholder="Írj egy üzenetet...">
+        <input type="file" id="image-input" accept="image/*">
+        <button id="send-btn">Küldés</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // CSERÉLD KI AZ ALÁBBI RÉSZT A TE FIREBASE KÓDODRA:
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
+
+  authDomain: "koli-app-85ef1.firebaseapp.com",
+
+  projectId: "koli-app-85ef1",
+
+  storageBucket: "koli-app-85ef1.firebasestorage.app",
+
+  messagingSenderId: "1004585923554",
+
+  appId: "1:1004585923554:web:34213bcbf7680ea75abfbb"
+
+};
+
+        // EDDIG A PONTIG.
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const loginSection = document.getElementById('login-section');
+        const chatSection = document.getElementById('chat-section');
+        const messagesDiv = document.getElementById('messages');
+        const msgErrorDiv = document.getElementById('message-error');
+
+        // Belépési logika
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            signInWithEmailAndPassword(auth, email, password)
+                .then(() => {
+                    loginSection.style.display = 'none';
+                    chatSection.style.display = 'block';
+                    loadMessages();
+                })
+                .catch(() => {
+                    msgErrorDiv.innerText = "Hibás e-mail vagy jelszó!";
+                });
+        });
+
+        // Üzenet és/vagy kép küldése
+        document.getElementById('send-btn').addEventListener('click', async () => {
+            const inputField = document.getElementById('chat-input');
+            const imageInput = document.getElementById('image-input');
+            const text = inputField.value.trim();
+            const file = imageInput.files[0];
+
+            if (text === "" && !file) return; // Se szöveg, se kép nincs
+
+            const sendDataToFirestore = async (base64Img = null) => {
+                try {
+                    const docData = {
+                        sender: auth.currentUser.email,
+                        timestamp: serverTimestamp()
+                    };
+                    if (text !== "") docData.text = text;
+                    if (base64Img) docData.imageUrl = base64Img;
+
+                    await addDoc(collection(db, "messages"), docData);
+                    inputField.value = ""; 
+                    imageInput.value = ""; // Mezők ürítése
+                } catch (e) {
+                    console.error("Hiba a küldéskor: ", e);
+                    alert("Hiba történt a küldés során. Talán túl nagy a kép?");
+                }
+            };
+
+            // Ha van kép, először tömörítjük, majd küldjük
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; // Maximális szélesség beállítása
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Kép tömörítése JPEG formátumba (60% minőség)
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                        sendDataToFirestore(compressedBase64);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Csak szöveges üzenet küldése
+                sendDataToFirestore();
+            }
+        });
+
+        // Üzenetek betöltése
+        function loadMessages() {
+            const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
+            onSnapshot(q, (snapshot) => {
+                messagesDiv.innerHTML = ""; 
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const msgElement = document.createElement('div');
+                    msgElement.className = 'message';
+                    
+                    let contentHtml = `<span class="sender-name">${data.sender}</span>`;
+                    if (data.text) contentHtml += `<div>${data.text}</div>`;
+                    if (data.imageUrl) contentHtml += `<img src="${data.imageUrl}" alt="Csatolt kép">`;
+                    
+                    msgElement.innerHTML = contentHtml;
+                    messagesDiv.appendChild(msgElement);
+                });
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; 
+            });
+        }
+    </script>
+</body>
+</html>
