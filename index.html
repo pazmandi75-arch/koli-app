@@ -13,12 +13,20 @@
         #messages { height: 400px; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; padding: 15px; text-align: left; background: #fafafa; border-radius: 8px; }
         .message { margin-bottom: 15px; padding: 10px; border-radius: 10px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; }
         .sender-name { font-weight: bold; color: #0056b3; font-size: 11px; display: block; margin-bottom: 5px; }
-        .message img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; }
-        /* Új stílus a jelszó gombhoz */
+        .message img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; cursor: pointer; transition: transform 0.2s; }
+        .message img:hover { transform: scale(1.02); }
         #forgot-pwd-btn { background: none; border: none; color: #0056b3; text-decoration: underline; font-size: 12px; cursor: pointer; width: auto; margin: 0; padding: 5px; font-weight: normal; }
+        
+        /* Nagyító (Lightbox) stílusa */
+        #lightbox { display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); justify-content: center; align-items: center; cursor: zoom-out; }
+        #lightbox img { max-width: 90%; max-height: 90%; border: 3px solid white; border-radius: 4px; }
     </style>
 </head>
 <body>
+
+    <div id="lightbox" onclick="this.style.display='none'">
+        <img id="lightbox-img" src="">
+    </div>
 
     <div class="container" id="login-section">
         <h2>Pedagógus Belépés</h2>
@@ -57,46 +65,28 @@
         const db = getFirestore(app);
 
         onAuthStateChanged(auth, (user) => {
-            const loginSec = document.getElementById('login-section');
-            const chatSec = document.getElementById('chat-section');
             if (user) {
-                loginSec.style.display = 'none';
-                chatSec.style.display = 'block';
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('chat-section').style.display = 'block';
                 loadMessages();
             } else {
-                loginSec.style.display = 'block';
-                chatSec.style.display = 'none';
+                document.getElementById('login-section').style.display = 'block';
+                document.getElementById('chat-section').style.display = 'none';
             }
         });
 
         document.getElementById('login-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                document.getElementById('message-error').style.color = "red";
-                document.getElementById('message-error').innerText = "Hiba: Hibás adatok!";
-            }
+            try { await signInWithEmailAndPassword(auth, email, password); } 
+            catch (error) { document.getElementById('message-error').innerText = "Hiba: Hibás adatok!"; }
         });
 
-        // ÚJ: Elfelejtett jelszó logika
         document.getElementById('forgot-pwd-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
-            const msgDiv = document.getElementById('message-error');
-            if (!email) {
-                msgDiv.style.color = "red";
-                msgDiv.innerText = "Kérlek, előbb írd be az e-mail címedet!";
-                return;
-            }
-            try {
-                await sendPasswordResetEmail(auth, email);
-                msgDiv.style.color = "green";
-                msgDiv.innerText = "Jelszó-visszaállító e-mail elküldve!";
-            } catch (error) {
-                msgDiv.style.color = "red";
-                msgDiv.innerText = "Hiba: Nem található ilyen e-mail cím.";
-            }
+            if (!email) { alert("Írd be az e-mail címed!"); return; }
+            try { await sendPasswordResetEmail(auth, email); alert("E-mail elküldve!"); } 
+            catch (error) { alert("Hiba történt!"); }
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
@@ -106,21 +96,14 @@
             const imageInput = document.getElementById('image-input');
             const text = inputField.value.trim();
             const file = imageInput.files[0];
-
             if (!text && !file) return;
 
             const sendToDB = async (base64Img = null) => {
-                try {
-                    const docData = { 
-                        sender: auth.currentUser.email, 
-                        timestamp: serverTimestamp() 
-                    };
-                    if (text) docData.text = text;
-                    if (base64Img) docData.imageUrl = base64Img;
-                    await addDoc(collection(db, "messages"), docData);
-                    inputField.value = ""; 
-                    imageInput.value = "";
-                } catch (e) { console.error("Küldési hiba:", e); }
+                const docData = { sender: auth.currentUser.email, timestamp: serverTimestamp() };
+                if (text) docData.text = text;
+                if (base64Img) docData.imageUrl = base64Img;
+                await addDoc(collection(db, "messages"), docData);
+                inputField.value = ""; imageInput.value = "";
             };
 
             if (file) {
@@ -129,12 +112,12 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 600;
+                        const MAX_WIDTH = 800;
                         let w = img.width, h = img.height;
                         if (w > MAX_WIDTH) { h *= MAX_WIDTH / w; w = MAX_WIDTH; }
                         canvas.width = w; canvas.height = h;
                         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                        sendToDB(canvas.toDataURL('image/jpeg', 0.5));
+                        sendToDB(canvas.toDataURL('image/jpeg', 0.6));
                     };
                     img.src = e.target.result;
                 };
@@ -147,21 +130,33 @@
 
         function loadMessages() {
             const q = query(collection(db, "messages"), orderBy("timestamp", "asc"));
-            onSnapshot(q, (snap) => {
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.innerHTML = "";
-                snap.forEach((doc) => {
-                    const data = doc.data();
-                    const div = document.createElement('div');
-                    div.className = 'message';
-                    div.innerHTML = `<span class="sender-name">${data.sender}</span>` +
-                                    (data.text ? `<div>${data.text}</div>` : "") +
-                                    (data.imageUrl ? `<img src="${data.imageUrl}">` : "");
-                    messagesDiv.appendChild(div);
+            onSnapshot(collection(db, "users"), (userSnap) => {
+                const userNames = {};
+                userSnap.forEach(doc => userNames[doc.id] = doc.data().displayName);
+
+                onSnapshot(q, (snap) => {
+                    const messagesDiv = document.getElementById('messages');
+                    messagesDiv.innerHTML = "";
+                    snap.forEach((doc) => {
+                        const data = doc.data();
+                        const div = document.createElement('div');
+                        div.className = 'message';
+                        const name = userNames[data.sender] || data.sender;
+                        div.innerHTML = `<span class="sender-name">${name}</span>` +
+                                        (data.text ? `<div>${data.text}</div>` : "") +
+                                        (data.imageUrl ? `<img src="${data.imageUrl}" onclick="showFullImage('${data.imageUrl}')">` : "");
+                        messagesDiv.appendChild(div);
+                    });
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 });
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             });
         }
+
+        // Nagyító funkció globális elérhetőséggel
+        window.showFullImage = function(url) {
+            document.getElementById('lightbox-img').src = url;
+            document.getElementById('lightbox').style.display = 'flex';
+        };
     </script>
 </body>
 </html>
