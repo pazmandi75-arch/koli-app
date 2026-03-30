@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Pedagógus Chat</title>
+    <title>Karacs Tanári Chat</title>
     <style>
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
         .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); width: 450px; text-align: center; position: relative; }
@@ -41,9 +41,7 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-       const firebaseConfig = {
-
-  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
+        const firebaseConfig = {  apiKey: "AIzaSyB7VTS4x9Sj22WkzaN292WyC2tyTrE4zn8",
 
   authDomain: "koli-app-85ef1.firebaseapp.com",
 
@@ -56,10 +54,7 @@
   appId: "1:1004585923554:web:34213bcbf7680ea75abfbb"
 
 };
-
-            // IDE MÁSOLD BE A SAJÁT CONFIGODAT!
-        };
-
+           
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
